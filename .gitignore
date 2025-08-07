@@ -63,3 +63,19 @@ Thumbs.db
 
 # Chrome database (if using ChromaDB)
 chroma.sqlite3
+
+# Jupyter notebooks and development files
+cromadb.ipynb
+cromadb_fixed.ipynb
+huggingfacetrial.ipynb
+*.ipynb
+
+# Development scripts
+csvmaker.py
+llmwrapper.py
+lstm_resume_matcher.py
+preprocessing.py
+
+# Directories
+basicfile/
+resume-extractor/
