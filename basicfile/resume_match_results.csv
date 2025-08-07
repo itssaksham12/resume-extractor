@@ -1,0 +1,103 @@
+resume_filename,extracted_skills,job_description,required_skills,tfidf_match_score,jaccard_match_score
+Saksham_resume.pdf,,"Machine learning engineer. Required: Python, statistics, machine learning, artificial intelligence.","Python', 'data analysis', 'machine learning', 'NLP', 'scikit-learn', 'TensorFlow', 'Pandas', 'NumPy', 'communication', 'project management",11.12,0.0
+Saksham_resume.pdf,,"looking for a Data Scientist with Strong experience in Python and data analysis, Familiarity with machine learning frameworks (scikit-learn, TensorFlow), Experience in NLP and deploying ML models and Good communication skills","Python', 'data analysis', 'machine learning', 'NLP', 'scikit-learn', 'TensorFlow', 'Pandas', 'NumPy', 'communication', 'project management",18.01,0.0
+Saksham_resume.pdf,,"looking for a Data Scientist with Strong experience in Python and data analysis, Familiarity with machine learning frameworks (scikit-learn, TensorFlow), Experience in NLP and deploying ML models and Good communication skills","Python', 'data analysis', 'machine learning', 'NLP', 'scikit-learn', 'TensorFlow', 'Pandas', 'NumPy', 'communication', 'project management",18.01,0.0
+Neha Giri - Emulation Engineer.pdf,Java,"Design Verification: 7+ Years experience in Testbench Architecture, SystemVerilog, UVM, Amba Protocols and SOC Verification of 1-2 years is required.
+
+Emulation Haps: 7+ Years experience in Synopsys Haps Protocompiler using RTL Design with strong experience in FPGA and 1-2 years in Perl/Python is required.
+
+ 
+
+Sr Staff Design Verification Engineer
+
+ 
+
+Sr Staff Design Verification Engineer-
+
+Location: - Bangalore and customer is amazon, Mahadevpura
+
+Budget: - 7 to 8 years design verification, INR 300000 /month
+
+Work from office  
+
+Interview process: - 2 to 3 internal and 2 with client 
+
+Key job responsibilities:
+
+As a Senior Design Verification Engineer, you will define verification methodology and implement the corresponding verification plan for the SoC. You will participate in the design verification and bring-up of the SoC by writing relevant tests, coverages, assertions, developing automation infrastructure, debugging code, test benches, test harnesses, while interacting with the extended team. You will work closely with multi-disciplinary groups including Product Design, Audio Technology, Computer Vision, Hardware and Software Engineering, to create a multi-model SoC that enables development of world-class hardware devices.
+
+Basic qualifications
+
+·         Bachelor’s/ Master’s degree or higher in EEE/ECE
+
+·         7+ years or more of practical semiconductor design verification including System Verilog, UVM, GLS, assertions and coverage driven verification.
+
+·         Experience using multiple verification platforms: UVM test bench, emulator, software environments
+
+·         Experience with industry standard IO interfaces like AMBA, CXL, USB, MIPI, PCIE, DDR etc.
+
+·         Experience defining verification methodologies
+
+·         Experience with test plan development, test bench infrastructure, developing tests and verifying the design
+
+·         Experience with writing directed/constrained-random tests
+
+·         Experience identifying bugs in architecture, functionality, and performance with strong overall debug skills
+
+·         Experience verifying at multiple levels of logic from SoCs to full system testing
+
+·         Experience with industry standard tools and scripting languages (Python) for automation
+
+·         Experience in SOC Architecture is a strong plus
+
+·         Experience with ARM/RISCV
+
+·         Experience with debugging system level issues
+
+·         Experience with industry standard IO interfaces like AMBA, USB, MIPI, PCIE etc.
+
+·         Experience with formal verification techniques
+
+·         Excellent verbal and written communication skills
+
+-------------------------------------------------
+
+ 
+
+Emulation Engineer -Exp: - 7 to 8 years
+
+Location: - Bangalore and customer is amazon, Mahadevpura
+
+Emulation Engineer- tool name: - Happs, designers RTL (not required testers) they need java developers. Required chip designer
+
+Interview process: -  2 to 3 internal and 2 with client 
+
+Job Description
+
+·         Developing emulation testbenches to support necessary DV scenarios and firmware/software/hardware bring up
+
+Key job responsibilities:
+
+·         Build emulation models from RTL and release/support those models
+
+·         Develop emulation tools such as debugger and monitor features
+
+·         Work closely with verification and software development teams
+
+·         Develop emulation and verification strategy
+
+·         Develop test framework and test cases
+
+·         Write documents such as verification specification and reports
+
+·         Coach younger colleagues
+
+·         Emulation and Prototyping technologies such as Palladium, Veloce, Zebu, HAPS, (these names are registered trade marks of their respective owners)
+
+ Basic qualifications:
+
+·         Bachelor’s/ Master’s degree or higher in EEE/ECE
+
+·         7+ years or more of practical semiconductor Emulation and Prototyping technologies such as Palladium, Veloce, Zebu, HAPS, (these names are registered trade marks of their respective owners)
+
+·         Excellent verbal and written communication skills","SystemVerilog, UVM, SoC Architecture, AMBA/USB/PCle, Scripting (Python/Perl), Synopsys, HAPS Emulation Tools, Palladium, Debugging (functional/Performance), FPGA/RTL, Design Test Plan / Testbench Dev, Formal Verification, Java, Communication / Documentation",22.67,7.14

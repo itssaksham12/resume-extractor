@@ -1,0 +1,7 @@
+resume_filename,extracted_skills,job_description,required_skills,tfidf_match_score,jaccard_match_score
+Saksham_resume.pdf,,"Looking for a Data Scientist with:
+- Strong experience in Python and data analysis
+- Familiarity with machine learning frameworks (scikit-learn, TensorFlow)
+- Experience in NLP and deploying ML models
+- Good communication skills","Python', 'data analysis', 'machine learning', 'NLP', 'scikit-learn', 'TensorFlow', 'Pandas', 'NumPy', 'communication', 'project management",18.01,0.0
+Saksham_resume.pdf,,"looking for a Data Scientist with Strong experience in Python and data analysis, Familiarity with machine learning frameworks (scikit-learn, TensorFlow), Experience in NLP and deploying ML models and Good communication skills","Python', 'data analysis', 'machine learning', 'NLP', 'scikit-learn', 'TensorFlow', 'Pandas', 'NumPy', 'communication', 'project management",18.01,0.0
