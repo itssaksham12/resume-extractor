@@ -1,0 +1,7 @@
+torch
+transformers
+tensorflow-cpu
+scikit-learn
+pandas
+numpy
+gradio
