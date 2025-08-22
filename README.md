@@ -1,6 +1,5 @@
 ---
 title: Resume Reviewer AI
-emoji: 📄
 colorFrom: blue
 colorTo: purple
 sdk: gradio
@@ -77,6 +76,3 @@ The app includes sample job descriptions and resumes for testing. Just click the
 
 MIT License - feel free to use and modify for your projects.
 
----
-
-*Built with ❤️ using Hugging Face Spaces*
