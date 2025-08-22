@@ -1,50 +1,41 @@
-# Large model files
-bert_skills_model.pth
-*.pth
-*.h5
-*.pkl
-
-# Training artifacts and logs
-lstm_training.log
-training_history.png
-lstm_resume_matcher_*.h5
-lstm_resume_matcher_*_*.pkl
-lstm_resume_matcher_best.h5
-
-# Large data files
-resume_samples.txt
-normlized_classes.txt
-processed_job_data.csv
-job_title_des.csv
-UpdatedResumeDataSet.csv
-AI_Resume_Screening.csv
-
-# Database files
-resume_db/
-*.sqlite3
-*.db
-
-# Jupyter notebooks (optional - uncomment if you don't want to track them)
-# *.ipynb
-
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Virtual environment
+# Virtual Environment
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS files
+# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -53,29 +44,57 @@ ENV/
 ehthumbs.db
 Thumbs.db
 
-# Temporary files
+# Model Files (Large files - use Git LFS for these)
+*.pth
+*.h5
+*.pkl
+*.pkl.gz
+*.joblib
+*.pickle
+
+# Training Logs and Outputs
+*.log
+training_history.png
+training_plots/
+logs/
+outputs/
+
+# Data Files (Large datasets)
+*.csv
+*.json
+*.txt
+resumes_corpus/
+resume_db/
+
+# Gradio
+.gradio/
+
+# Temporary Files
 *.tmp
 *.temp
-*.log
+temp/
+tmp/
 
-# Large PDF files (optional - uncomment if you don't want to track them)
-# *.pdf
+# Jupyter Notebooks
+.ipynb_checkpoints/
 
-# Chrome database (if using ChromaDB)
-chroma.sqlite3
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Jupyter notebooks and development files
-cromadb.ipynb
-cromadb_fixed.ipynb
-huggingfacetrial.ipynb
-*.ipynb
+# Coverage Reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
 
-# Development scripts
-csvmaker.py
-llmwrapper.py
-lstm_resume_matcher.py
-preprocessing.py
-
-# Directories
-basicfile/
-resume-extractor/
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
