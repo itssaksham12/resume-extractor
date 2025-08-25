@@ -10,9 +10,7 @@ import pickle
 # Import our existing models (local versions)
 from bert_skills_extractor import SkillsExtractor, BERTSkillsModel
 
-# Import the advanced LSTM resume matcher from parent directory
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+# Import the advanced LSTM resume matcher
 from lstm_resume_matcher import LSTMResumeMatcherTrainer, AdvancedFeatureExtractor
 
 # Import summarization components
