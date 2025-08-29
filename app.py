@@ -110,96 +110,106 @@ models = {
     "feature_extractor": None
 }
 
-@app.on_event("startup")
-async def load_models():
-    """Load all AI models on startup with comprehensive error handling"""
+@app.on_event("startup") 
+async def initialize_app():
+    """Initialize basic components immediately"""
     global models
     
-    logger.info("🚀 Starting model loading process...")
+    logger.info("🚀 Starting Resume Extractor API...")
+    
+    # Load only essential components for immediate startup
+    models["skills_extractor"] = SkillsExtractor()
+    models["feature_extractor"] = AdvancedFeatureExtractor()
+    
+    # Start background model loading (non-blocking)
+    import asyncio
+    asyncio.create_task(load_models_background())
+    
+    logger.info("✅ App initialized - starting background model loading")
+
+async def load_models_background():
+    """Load AI models in background after app starts"""
+    global models
     
     try:
-        # 1. Load Basic Skills Extractor (always works)
-        logger.info("📊 Loading Skills Extractor...")
-        models["skills_extractor"] = SkillsExtractor()
-        logger.info("✅ Skills Extractor loaded successfully")
+        logger.info("📊 Loading AI models in background...")
         
-        # 2. Try to load BERT Skills Model (optional)
-        logger.info("🧠 Attempting to load BERT Skills Model...")
-        try:
-            bert_model_paths = ["bert_skills_model.pth", "models/bert_skills_model.pth"]
-            for model_path in bert_model_paths:
-                if os.path.exists(model_path):
-                    models["bert_skills_model"] = BERTSkillsModel(models["skills_extractor"])
-                    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
-                    n_classes = len(checkpoint["mlb"].classes_)
-                    models["bert_skills_model"].load_model(model_path, n_classes=n_classes)
-                    logger.info(f"✅ BERT Skills Model loaded from {model_path}")
-                    break
-        except Exception as e:
-            logger.warning(f"⚠️ BERT Skills Model not available: {e}")
+        # Load models sequentially in background
+        await load_bert_skills_model()
+        await load_lstm_matcher()
+        await load_bert_summarizer()
         
-        # 3. Try to load LSTM Resume Matcher (optional)
-        logger.info("🔄 Attempting to load LSTM Resume Matcher...")
-        try:
-            lstm_paths = ["lstm_resume_matcher_best.h5", "models/lstm_resume_matcher_best.h5"]
-            for model_path in lstm_paths:
-                if os.path.exists(model_path):
-                    models["lstm_matcher"] = LSTMResumeMatcherTrainer()
-                    models["lstm_matcher"].model = tf.keras.models.load_model(model_path)
-                    
-                    # Try to load support files
-                    timestamp = "20250828_113623"
-                    try:
-                        with open(f"lstm_resume_matcher_tokenizer_{timestamp}.pkl", 'rb') as f:
-                            models["lstm_matcher"].tokenizer = pickle.load(f)
-                        with open(f"lstm_resume_matcher_scaler_{timestamp}.pkl", 'rb') as f:
-                            models["lstm_matcher"].scaler = pickle.load(f)
-                        with open(f"lstm_resume_matcher_extractor_{timestamp}.pkl", 'rb') as f:
-                            models["feature_extractor"] = pickle.load(f)
-                    except Exception:
-                        logger.warning("⚠️ Some LSTM support files not found, using fallback")
-                        models["feature_extractor"] = AdvancedFeatureExtractor()
-                    
-                    logger.info(f"✅ LSTM Resume Matcher loaded from {model_path}")
-                    break
-        except Exception as e:
-            logger.warning(f"⚠️ LSTM Resume Matcher not available: {e}")
+        # Summary
+        loaded_models = {k: v is not None for k, v in models.items()}
+        logger.info("🎉 Background model loading completed!")
+        logger.info(f"📋 Loaded models: {loaded_models}")
         
-        # 4. Always ensure we have a feature extractor
-        if not models["feature_extractor"]:
-            models["feature_extractor"] = AdvancedFeatureExtractor()
-        
-        # 5. Try to load BERT Summarizer (optional)
+    except Exception as e:
+        logger.error(f"❌ Error during background model loading: {e}")
+
+async def load_bert_skills_model():
+    """Load BERT skills model"""
+    try:
+        logger.info("🧠 Loading BERT Skills Model...")
+        bert_model_paths = ["bert_skills_model.pth", "models/bert_skills_model.pth"]
+        for model_path in bert_model_paths:
+            if os.path.exists(model_path):
+                models["bert_skills_model"] = BERTSkillsModel(models["skills_extractor"])
+                checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+                n_classes = len(checkpoint["mlb"].classes_)
+                models["bert_skills_model"].load_model(model_path, n_classes=n_classes)
+                logger.info(f"✅ BERT Skills Model loaded from {model_path}")
+                break
+    except Exception as e:
+        logger.warning(f"⚠️ BERT Skills Model not available: {e}")
+
+async def load_lstm_matcher():
+    """Load LSTM resume matcher"""
+    try:
+        logger.info("🔄 Loading LSTM Resume Matcher...")
+        lstm_paths = ["lstm_resume_matcher_best.h5", "models/lstm_resume_matcher_best.h5"]
+        for model_path in lstm_paths:
+            if os.path.exists(model_path):
+                models["lstm_matcher"] = LSTMResumeMatcherTrainer()
+                models["lstm_matcher"].model = tf.keras.models.load_model(model_path)
+                
+                # Try to load support files
+                timestamp = "20250828_113623"
+                try:
+                    with open(f"lstm_resume_matcher_tokenizer_{timestamp}.pkl", 'rb') as f:
+                        models["lstm_matcher"].tokenizer = pickle.load(f)
+                    with open(f"lstm_resume_matcher_scaler_{timestamp}.pkl", 'rb') as f:
+                        models["lstm_matcher"].scaler = pickle.load(f)
+                    with open(f"lstm_resume_matcher_extractor_{timestamp}.pkl", 'rb') as f:
+                        models["feature_extractor"] = pickle.load(f)
+                except Exception:
+                    logger.warning("⚠️ Some LSTM support files not found, using fallback")
+                
+                logger.info(f"✅ LSTM Resume Matcher loaded from {model_path}")
+                break
+    except Exception as e:
+        logger.warning(f"⚠️ LSTM Resume Matcher not available: {e}")
+
+async def load_bert_summarizer():
+    """Load BERT summarizer"""
+    try:
         if BERTSummarizerTrainer and TextPreprocessor:
-            logger.info("📝 Attempting to load BERT Summarizer...")
-            try:
-                summarizer_paths = ["bert_summarizer_model.pth", "models/bert_summarizer_model.pth"]
-                for model_path in summarizer_paths:
-                    if os.path.exists(model_path):
-                        models["bert_summarizer"] = BERTSummarizerTrainer()
-                        models["bert_summarizer"].load_model(model_path)
-                        models["text_preprocessor"] = TextPreprocessor()
-                        logger.info(f"✅ BERT Summarizer loaded from {model_path}")
-                        break
-            except Exception as e:
-                logger.warning(f"⚠️ BERT Summarizer not available: {e}")
+            logger.info("📝 Loading BERT Summarizer...")
+            summarizer_paths = ["bert_summarizer_model.pth", "models/bert_summarizer_model.pth"]
+            for model_path in summarizer_paths:
+                if os.path.exists(model_path):
+                    models["bert_summarizer"] = BERTSummarizerTrainer()
+                    models["bert_summarizer"].load_model(model_path)
+                    models["text_preprocessor"] = TextPreprocessor()
+                    logger.info(f"✅ BERT Summarizer loaded from {model_path}")
+                    break
         
         # Always ensure we have a text preprocessor
         if not models["text_preprocessor"] and TextPreprocessor:
             models["text_preprocessor"] = TextPreprocessor()
-        
-        # Summary
-        loaded_models = {k: v is not None for k, v in models.items()}
-        logger.info("🎉 Model loading completed!")
-        logger.info(f"📋 Loaded models: {loaded_models}")
-        
+            
     except Exception as e:
-        logger.error(f"❌ Critical error during model loading: {e}")
-        # Ensure basic functionality
-        if not models["skills_extractor"]:
-            models["skills_extractor"] = SkillsExtractor()
-        if not models["feature_extractor"]:
-            models["feature_extractor"] = AdvancedFeatureExtractor()
+        logger.warning(f"⚠️ BERT Summarizer not available: {e}")
 
 @app.get("/", response_model=HealthResponse)
 async def health_check():
@@ -372,6 +382,17 @@ def calculate_rule_based_match(resume_skills, jd_skills):
     return (matching / total_required) * 100
 
 if __name__ == "__main__":
+    # Download NLTK data first
+    try:
+        import nltk
+        print("📥 Downloading NLTK data...")
+        nltk.download('punkt', quiet=True)
+        nltk.download('stopwords', quiet=True)
+        print("✅ NLTK data downloaded successfully")
+    except Exception as e:
+        print(f"⚠️ NLTK download failed: {e}")
+    
     # For local development and Render deployment
     port = int(os.environ.get("PORT", 8000))
+    print(f"🚀 Starting FastAPI app on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
