@@ -26,15 +26,10 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 
-# Add parent directory to path for model imports
-current_dir = Path(__file__).parent
-parent_dir = current_dir.parent
-sys.path.append(str(parent_dir))
-
-# Import your existing models
+# Import your existing models (now in backend directory)
 from bert_skills_extractor import SkillsExtractor, BERTSkillsModel
 from lstm_resume_matcher import LSTMResumeMatcherTrainer, AdvancedFeatureExtractor
-from app.bert_summarizer import BERTSummarizerTrainer, TextPreprocessor
+from bert_summarizer import BERTSummarizerTrainer, TextPreprocessor
 
 # Configure logging
 logging.basicConfig(
@@ -148,9 +143,9 @@ async def load_models():
         # 2. Try to load BERT Skills Model
         logger.info("🧠 Loading BERT Skills Model...")
         bert_model_paths = [
-            parent_dir / "bert_skills_model.pth",
-            parent_dir / "models" / "bert_skills_model.pth",
-            parent_dir / "app" / "bert_skills_model.pth"
+            Path("bert_skills_model.pth"),
+            Path("models") / "bert_skills_model.pth",
+            Path("../bert_skills_model.pth")
         ]
         
         for model_path in bert_model_paths:
@@ -173,8 +168,9 @@ async def load_models():
         # 3. Load LSTM Resume Matcher
         logger.info("🔄 Loading LSTM Resume Matcher...")
         lstm_model_paths = [
-            parent_dir / "lstm_resume_matcher_best.h5",
-            parent_dir / "models" / "lstm_resume_matcher_best.h5"
+            Path("lstm_resume_matcher_best.h5"),
+            Path("models") / "lstm_resume_matcher_best.h5",
+            Path("../lstm_resume_matcher_best.h5")
         ]
         
         for model_path in lstm_model_paths:
@@ -227,9 +223,9 @@ async def load_models():
         # 4. Load BERT Summarizer
         logger.info("📝 Loading BERT Summarizer...")
         summarizer_paths = [
-            parent_dir / "app" / "bert_summarizer_model.pth",
-            parent_dir / "models" / "bert_summarizer_model.pth",
-            parent_dir / "bert_summarizer_model.pth"
+            Path("bert_summarizer_model.pth"),
+            Path("models") / "bert_summarizer_model.pth",
+            Path("../app") / "bert_summarizer_model.pth"
         ]
         
         for model_path in summarizer_paths:

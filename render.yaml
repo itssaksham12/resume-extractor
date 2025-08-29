@@ -4,15 +4,14 @@ services:
     name: resume-extractor-api
     env: python
     buildCommand: |
-      cd backend &&
       pip install --upgrade pip &&
       pip install -r requirements.txt &&
-      python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
-    startCommand: cd backend && gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300
-    plan: starter  # Use 'standard' for more memory/CPU if needed
+      python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')" || echo "NLTK download failed"
+    startCommand: python startup.py
+    plan: starter
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.7
+        value: 3.9.16
       - key: PORT
         sync: false
       - key: ENVIRONMENT
@@ -20,25 +19,5 @@ services:
       - key: TF_CPP_MIN_LOG_LEVEL
         value: "2"
       - key: TOKENIZERS_PARALLELISM
-        value: "false"
-      - key: CORS_ORIGINS
-        value: https://resume-extractor-frontend.onrender.com
-    healthCheckPath: /
-    
-  # React Frontend Service  
-  - type: web
-    name: resume-extractor-frontend
-    env: node
-    buildCommand: |
-      cd frontend &&
-      npm install &&
-      npm run build
-    startCommand: cd frontend && npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 18.18.0
-      - key: REACT_APP_API_URL
-        value: https://resume-extractor-api.onrender.com
-      - key: GENERATE_SOURCEMAP
         value: "false"
     healthCheckPath: /
