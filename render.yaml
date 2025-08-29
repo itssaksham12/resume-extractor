@@ -7,7 +7,7 @@ services:
       pip install --upgrade pip &&
       pip install -r requirements.txt &&
       python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')" || echo "NLTK download failed"
-    startCommand: python startup.py
+    startCommand: gunicorn app:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300
     plan: starter
     envVars:
       - key: PYTHON_VERSION
