@@ -1,0 +1,25 @@
+[global]
+# Development settings
+developmentMode = false
+
+[server]
+# Server settings for deployment
+headless = true
+port = 8501
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Disable browser auto-open in production
+gatherUsageStats = false
+
+[theme]
+# Optional: Custom theme
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+
+[client]
+# Client settings
+showErrorDetails = false

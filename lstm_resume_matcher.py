@@ -169,10 +169,10 @@ class LSTMResumeMatcherTrainer:
         logger.info("Loading datasets...")
         
         # Load datasets
-        ai_screening = pd.read_csv('/Users/sakshamfaujdar/Developer/NGIL/resume_reviewer/AI_Resume_Screening.csv')
-        updated_resumes = pd.read_csv('/Users/sakshamfaujdar/Developer/NGIL/resume_reviewer/UpdatedResumeDataSet.csv')
-        job_titles = pd.read_csv('/Users/sakshamfaujdar/Developer/NGIL/resume_reviewer/job_title_des.csv')
-        processed_jobs = pd.read_csv('/Users/sakshamfaujdar/Developer/NGIL/resume_reviewer/processed_job_data.csv')
+        ai_screening = pd.read_csv('AI_Resume_Screening.csv')
+        updated_resumes = pd.read_csv('UpdatedResumeDataSet.csv')
+        job_titles = pd.read_csv('job_title_des.csv')
+        processed_jobs = pd.read_csv('processed_job_data.csv')
         
         logger.info(f"AI Screening: {len(ai_screening)} records")
         logger.info(f"Updated Resumes: {len(updated_resumes)} records")
