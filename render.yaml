@@ -7,17 +7,21 @@ services:
       pip install --upgrade pip &&
       pip install -r requirements.txt &&
       python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')" || echo "NLTK download failed"
-    startCommand: gunicorn app:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300
+    startCommand: python start_render.py
     plan: starter
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.16
+        value: 3.11.0
       - key: PORT
-        sync: false
+        value: 10000
       - key: ENVIRONMENT
         value: production
       - key: TF_CPP_MIN_LOG_LEVEL
         value: "2"
       - key: TOKENIZERS_PARALLELISM
         value: "false"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
     healthCheckPath: /

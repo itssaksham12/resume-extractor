@@ -13,6 +13,24 @@ from typing import List, Dict, Optional, Union
 import asyncio
 from datetime import datetime
 
+# Set environment variables before importing ML libraries to fix mutex lock
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+os.environ['KMP_INIT_AT_FORK'] = 'FALSE'
+
+# Set multiprocessing start method for Mac
+import multiprocessing
+try:
+    multiprocessing.set_start_method('spawn', force=True)
+except RuntimeError:
+    pass  # Already set
+
 # FastAPI imports
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,16 +38,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
 
-# Core ML imports
-import torch
-import tensorflow as tf
+# Core data processing imports
 import numpy as np
 import pandas as pd
 
-# Import your existing models (now in backend directory)
-from bert_skills_extractor import SkillsExtractor, BERTSkillsModel
-from lstm_resume_matcher import LSTMResumeMatcherTrainer, AdvancedFeatureExtractor
-from bert_summarizer import BERTSummarizerTrainer, TextPreprocessor
+# Models will be imported lazily to avoid mutex lock issues
 
 # Configure logging
 logging.basicConfig(
@@ -134,115 +147,241 @@ async def load_models():
     
     logger.info("🚀 Starting model loading process...")
     
+    # Set a timeout for model loading
+    import asyncio
+    
     try:
-        # 1. Load Basic Skills Extractor (always works)
+        # Use asyncio.wait_for to add timeout
+        await asyncio.wait_for(_load_models_with_timeout(), timeout=60.0)
+    except asyncio.TimeoutError:
+        logger.error("❌ Model loading timed out after 60 seconds")
+        logger.info("🚀 Starting server without all models loaded")
+    except Exception as e:
+        logger.error(f"❌ Critical error during model loading: {e}")
+        logger.info("🚀 Starting server with basic functionality")
+
+async def _load_models_with_timeout():
+    """Internal model loading function with timeout"""
+    global models
+    
+    try:
+        # 1. Try to load Basic Skills Extractor
         logger.info("📊 Loading Skills Extractor...")
-        models["skills_extractor"] = SkillsExtractor()
-        logger.info("✅ Skills Extractor loaded successfully")
+        try:
+            from bert_skills_extractor import SkillsExtractor
+            models["skills_extractor"] = SkillsExtractor()
+            logger.info("✅ Skills Extractor loaded successfully")
+        except ImportError as e:
+            logger.error(f"❌ Skills Extractor import failed: {e}")
+            logger.error("📦 Please install required dependencies: pip install torch tensorflow")
+            models["skills_extractor"] = None
         
-        # 2. Try to load BERT Skills Model
+        # 2. Try to load BERT Skills Model with lazy import
         logger.info("🧠 Loading BERT Skills Model...")
-        bert_model_paths = [
-            Path("bert_skills_model.pth"),
-            Path("models") / "bert_skills_model.pth",
-            Path("../bert_skills_model.pth")
-        ]
+        try:
+            import torch
+            from bert_skills_extractor import BERTSkillsModel
+            bert_model_paths = [
+                Path("../bert_skills_model.pth"),  # Root directory
+                Path("bert_skills_model.pth"),     # Backend directory
+                Path("models") / "bert_skills_model.pth",  # Models directory
+                Path("../app/bert_skills_model.pth")  # App directory
+            ]
+            
+            logger.info(f"🔍 Searching for BERT model in: {[str(p) for p in bert_model_paths]}")
+            
+            for model_path in bert_model_paths:
+                if model_path.exists():
+                    try:
+                        models["bert_skills_model"] = BERTSkillsModel(models["skills_extractor"])
+                        # Load checkpoint to get n_classes
+                        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+                        n_classes = len(checkpoint["mlb"].classes_)
+                        models["bert_skills_model"].load_model(str(model_path), n_classes=n_classes)
+                        logger.info(f"✅ BERT Skills Model loaded from {model_path}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to load BERT model from {model_path}: {e}")
+                        continue
+        except Exception as e:
+            logger.warning(f"⚠️ PyTorch import failed: {e}")
         
-        for model_path in bert_model_paths:
-            if model_path.exists():
-                try:
-                    models["bert_skills_model"] = BERTSkillsModel(models["skills_extractor"])
-                    # Load checkpoint to get n_classes
-                    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
-                    n_classes = len(checkpoint["mlb"].classes_)
-                    models["bert_skills_model"].load_model(str(model_path), n_classes=n_classes)
-                    logger.info(f"✅ BERT Skills Model loaded from {model_path}")
-                    break
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to load BERT model from {model_path}: {e}")
-                    continue
-        
-        if not models["bert_skills_model"]:
+        if not models.get("bert_skills_model"):
             logger.info("ℹ️ BERT Skills Model not found, using rule-based extraction")
         
-        # 3. Load LSTM Resume Matcher
+        # 3. Load LSTM Resume Matcher with lazy import and TensorFlow config  
         logger.info("🔄 Loading LSTM Resume Matcher...")
-        lstm_model_paths = [
-            Path("lstm_resume_matcher_best.h5"),
-            Path("models") / "lstm_resume_matcher_best.h5",
-            Path("../lstm_resume_matcher_best.h5")
-        ]
-        
-        for model_path in lstm_model_paths:
-            if model_path.exists():
-                try:
-                    models["lstm_matcher"] = LSTMResumeMatcherTrainer()
-                    models["lstm_matcher"].model = tf.keras.models.load_model(str(model_path))
-                    
-                    # Load supporting components
-                    timestamp = "20250828_113623"  # Your model timestamp
-                    model_dir = model_path.parent
-                    
-                    # Load tokenizer, scaler, and feature extractor
+        try:
+            # Configure TensorFlow to avoid mutex lock BEFORE import
+            logger.info("⚙️ Configuring TensorFlow for macOS...")
+            
+            # Apple Silicon M1 optimized TensorFlow configuration
+            logger.info("🍎 Configuring TensorFlow for Apple Silicon M1...")
+            
+            # Set Apple Silicon specific environment variables BEFORE TensorFlow import
+            os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+            os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+            os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+            os.environ['TF_DISABLE_MKL'] = '1'
+            os.environ['TF_DISABLE_POOL_ALLOCATOR'] = '1'
+            
+            # Critical: Force single-threaded execution for M1
+            os.environ['OMP_NUM_THREADS'] = '1'
+            os.environ['MKL_NUM_THREADS'] = '1'
+            os.environ['OPENBLAS_NUM_THREADS'] = '1'
+            os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+            os.environ['NUMEXPR_NUM_THREADS'] = '1'
+            
+            # Import TensorFlow AFTER environment configuration
+            import tensorflow as tf
+            
+            logger.info(f"✅ TensorFlow version: {tf.__version__}")
+            
+            # Check if running on Apple Silicon with Metal support
+            physical_devices = tf.config.list_physical_devices()
+            gpu_devices = tf.config.list_physical_devices('GPU')
+            
+            logger.info(f"📱 Physical devices: {len(physical_devices)}")
+            logger.info(f"🚀 GPU devices: {len(gpu_devices)}")
+            
+            # Force CPU-only execution to avoid M1 GPU mutex issues
+            logger.info("💻 Forcing CPU-only execution for stability on M1")
+            tf.config.set_visible_devices([], 'GPU')
+            
+            # Critical: Force single-threaded execution to prevent mutex locks
+            tf.config.threading.set_intra_op_parallelism_threads(1)
+            tf.config.threading.set_inter_op_parallelism_threads(1)
+            
+            # Disable all optimizations that could cause threading issues
+            tf.config.optimizer.set_jit(False)
+            tf.config.run_functions_eagerly(True)
+            
+            logger.info("✅ TensorFlow configured for single-threaded CPU execution on M1")
+            
+            logger.info("📚 Importing LSTM components...")
+            
+            # Add timeout for imports
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("LSTM import timed out")
+            
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(30)  # 30 second timeout
+            
+            try:
+                from lstm_resume_matcher import LSTMResumeMatcherTrainer, AdvancedFeatureExtractor
+                signal.alarm(0)  # Cancel timeout
+                logger.info("✅ LSTM components imported successfully")
+            except TimeoutError:
+                signal.alarm(0)
+                raise Exception("LSTM import timed out after 30 seconds")
+            
+            lstm_model_paths = [
+                Path("../lstm_resume_matcher_best.h5"),  # Root directory
+                Path("lstm_resume_matcher_best.h5"),     # Backend directory
+                Path("models") / "lstm_resume_matcher_best.h5",  # Models directory
+                Path("../app/lstm_resume_matcher_best.h5")  # App directory
+            ]
+            
+            logger.info(f"🔍 Searching for LSTM model in: {[str(p) for p in lstm_model_paths]}")
+            
+            for model_path in lstm_model_paths:
+                if model_path.exists():
                     try:
-                        tokenizer_path = model_dir / f"lstm_resume_matcher_tokenizer_{timestamp}.pkl"
-                        scaler_path = model_dir / f"lstm_resume_matcher_scaler_{timestamp}.pkl"
-                        extractor_path = model_dir / f"lstm_resume_matcher_extractor_{timestamp}.pkl"
+                        models["lstm_matcher"] = LSTMResumeMatcherTrainer()
+                        models["lstm_matcher"].model = tf.keras.models.load_model(str(model_path))
                         
-                        if tokenizer_path.exists():
-                            with open(tokenizer_path, 'rb') as f:
-                                models["lstm_matcher"].tokenizer = pickle.load(f)
+                        # Load supporting components
+                        timestamp = "20250828_113623"  # Your model timestamp
+                        model_dir = model_path.parent
                         
-                        if scaler_path.exists():
-                            with open(scaler_path, 'rb') as f:
-                                models["lstm_matcher"].scaler = pickle.load(f)
-                        
-                        if extractor_path.exists():
-                            with open(extractor_path, 'rb') as f:
-                                models["feature_extractor"] = pickle.load(f)
-                        else:
-                            # Create new feature extractor if not found
+                        # Load tokenizer, scaler, and feature extractor
+                        try:
+                            tokenizer_path = model_dir / f"lstm_resume_matcher_tokenizer_{timestamp}.pkl"
+                            scaler_path = model_dir / f"lstm_resume_matcher_scaler_{timestamp}.pkl"
+                            extractor_path = model_dir / f"lstm_resume_matcher_extractor_{timestamp}.pkl"
+                            
+                            if tokenizer_path.exists():
+                                with open(tokenizer_path, 'rb') as f:
+                                    models["lstm_matcher"].tokenizer = pickle.load(f)
+                            
+                            if scaler_path.exists():
+                                with open(scaler_path, 'rb') as f:
+                                    models["lstm_matcher"].scaler = pickle.load(f)
+                            
+                            if extractor_path.exists():
+                                with open(extractor_path, 'rb') as f:
+                                    models["feature_extractor"] = pickle.load(f)
+                            else:
+                                # Create new feature extractor if not found
+                                models["feature_extractor"] = AdvancedFeatureExtractor()
+                            
+                            logger.info(f"✅ LSTM Resume Matcher loaded from {model_path}")
+                            break
+                        except Exception as comp_error:
+                            logger.warning(f"⚠️ LSTM model loaded but some components failed: {comp_error}")
+                            # Still usable with basic functionality
                             models["feature_extractor"] = AdvancedFeatureExtractor()
-                        
-                        logger.info(f"✅ LSTM Resume Matcher loaded from {model_path}")
-                        break
-                    except Exception as comp_error:
-                        logger.warning(f"⚠️ LSTM model loaded but some components failed: {comp_error}")
-                        # Still usable with basic functionality
-                        models["feature_extractor"] = AdvancedFeatureExtractor()
-                        break
-                        
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to load LSTM model from {model_path}: {e}")
-                    continue
+                            break
+                            
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to load LSTM model from {model_path}: {e}")
+                        continue
+        except Exception as e:
+            logger.warning(f"⚠️ TensorFlow/LSTM loading failed: {e}")
+            logger.info("🔄 Creating fallback feature extractor...")
+            try:
+                from lstm_resume_matcher import AdvancedFeatureExtractor
+                models["feature_extractor"] = AdvancedFeatureExtractor()
+            except ImportError:
+                logger.warning("⚠️ Even fallback feature extractor failed")
+                models["feature_extractor"] = None
         
-        if not models["lstm_matcher"]:
-            logger.info("ℹ️ LSTM Resume Matcher not found")
-            models["feature_extractor"] = AdvancedFeatureExtractor()  # Fallback
-        
-        # 4. Load BERT Summarizer
-        logger.info("📝 Loading BERT Summarizer...")
-        summarizer_paths = [
-            Path("bert_summarizer_model.pth"),
-            Path("models") / "bert_summarizer_model.pth",
-            Path("../app") / "bert_summarizer_model.pth"
-        ]
-        
-        for model_path in summarizer_paths:
-            if model_path.exists():
+        if not models.get("lstm_matcher"):
+            logger.info("ℹ️ LSTM Resume Matcher not loaded, using rule-based matching")
+            if not models.get("feature_extractor"):
                 try:
-                    models["bert_summarizer"] = BERTSummarizerTrainer()
-                    models["bert_summarizer"].load_model(str(model_path))
-                    models["text_preprocessor"] = TextPreprocessor()
-                    logger.info(f"✅ BERT Summarizer loaded from {model_path}")
-                    break
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to load BERT summarizer from {model_path}: {e}")
-                    continue
+                    from lstm_resume_matcher import AdvancedFeatureExtractor
+                    models["feature_extractor"] = AdvancedFeatureExtractor()
+                except ImportError:
+                    models["feature_extractor"] = None
         
-        if not models["bert_summarizer"]:
-            logger.info("ℹ️ BERT Summarizer not found, using rule-based summarization")
-            models["text_preprocessor"] = TextPreprocessor()
+        # 4. Load BERT Summarizer with lazy import
+        logger.info("📝 Loading BERT Summarizer...")
+        try:
+            from bert_summarizer import BERTSummarizerTrainer, TextPreprocessor
+            summarizer_paths = [
+                Path("../bert_summarizer_model.pth"),  # Root directory
+                Path("bert_summarizer_model.pth"),     # Backend directory
+                Path("models") / "bert_summarizer_model.pth",  # Models directory
+                Path("../app/bert_summarizer_model.pth")  # App directory
+            ]
+            
+            logger.info(f"🔍 Searching for BERT Summarizer in: {[str(p) for p in summarizer_paths]}")
+            
+            for model_path in summarizer_paths:
+                if model_path.exists():
+                    try:
+                        models["bert_summarizer"] = BERTSummarizerTrainer()
+                        models["bert_summarizer"].load_model(str(model_path))
+                        models["text_preprocessor"] = TextPreprocessor()
+                        logger.info(f"✅ BERT Summarizer loaded from {model_path}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to load BERT summarizer from {model_path}: {e}")
+                        continue
+            
+            if not models.get("bert_summarizer"):
+                logger.info("ℹ️ BERT Summarizer not found, using rule-based summarization")
+                models["text_preprocessor"] = TextPreprocessor()
+        except Exception as e:
+            logger.warning(f"⚠️ BERT Summarizer import failed: {e}")
+            try:
+                from bert_summarizer import TextPreprocessor
+                models["text_preprocessor"] = TextPreprocessor()
+            except:
+                models["text_preprocessor"] = None
         
         # Summary of loaded models
         loaded_models = {k: v is not None for k, v in models.items()}
@@ -252,12 +391,23 @@ async def load_models():
     except Exception as e:
         logger.error(f"❌ Critical error during model loading: {e}")
         # Ensure basic functionality
-        if not models["skills_extractor"]:
-            models["skills_extractor"] = SkillsExtractor()
-        if not models["feature_extractor"]:
-            models["feature_extractor"] = AdvancedFeatureExtractor()
-        if not models["text_preprocessor"]:
-            models["text_preprocessor"] = TextPreprocessor()
+        # Ensure basic functionality even if models failed to load
+        if not models.get("skills_extractor"):
+            logger.warning("⚠️ Skills extractor not available - some features will be limited")
+        if not models.get("feature_extractor"):
+            try:
+                from lstm_resume_matcher import AdvancedFeatureExtractor
+                models["feature_extractor"] = AdvancedFeatureExtractor()
+            except ImportError:
+                logger.warning("⚠️ Feature extractor not available")
+                models["feature_extractor"] = None
+        if not models.get("text_preprocessor"):
+            try:
+                from bert_summarizer import TextPreprocessor
+                models["text_preprocessor"] = TextPreprocessor()
+            except ImportError:
+                logger.warning("⚠️ Text preprocessor not available")
+                models["text_preprocessor"] = None
 
 @app.get("/", response_model=HealthResponse)
 async def health_check():
@@ -281,8 +431,11 @@ async def extract_skills(request: SkillsExtractionRequest):
     start_time = datetime.now()
     
     try:
-        if not models["skills_extractor"]:
-            raise HTTPException(status_code=500, detail="Skills extractor not available")
+        if not models.get("skills_extractor"):
+            raise HTTPException(
+                status_code=503, 
+                detail="Skills extractor not available. Please install ML dependencies: pip install torch tensorflow"
+            )
         
         # Use BERT model if available and requested
         if request.use_ai_model and models["bert_skills_model"]:
