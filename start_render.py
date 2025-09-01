@@ -43,12 +43,18 @@ if __name__ == "__main__":
     print(f"📍 Host: {host}")
     print(f"🔌 Port: {port}")
     print(f"📁 Working directory: {os.getcwd()}")
+    print(f"🐍 Python path: {sys.path}")
+    
+    # Check if model files exist
+    import glob
+    model_files = glob.glob("*.pth") + glob.glob("*.h5") + glob.glob("../*.pth") + glob.glob("../*.h5")
+    print(f"🎯 Model files found: {model_files}")
     
     # Import and run with uvicorn
     import uvicorn
     from main import app
     
-    # Production configuration for Render
+    # Production configuration for Render - optimized for immediate port binding
     uvicorn.run(
         app,
         host=host,
@@ -56,5 +62,7 @@ if __name__ == "__main__":
         log_level="info",
         access_log=True,
         loop="asyncio",
-        workers=1  # Single worker for ML models
+        workers=1,  # Single worker for ML models
+        timeout_keep_alive=30,
+        timeout_graceful_shutdown=10
     )

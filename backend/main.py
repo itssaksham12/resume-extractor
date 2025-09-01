@@ -140,25 +140,43 @@ models = {
     "feature_extractor": None
 }
 
+# Model loading status
+model_loading_status = {
+    "loading": False,
+    "completed": False,
+    "error": None
+}
+
 @app.on_event("startup")
-async def load_models():
-    """Load all AI models on startup with comprehensive error handling"""
-    global models
-    
-    logger.info("🚀 Starting model loading process...")
-    
-    # Set a timeout for model loading
+async def startup_event():
+    """Start background model loading after server starts"""
+    logger.info("🚀 Server starting - models will load in background")
+    # Start model loading in background
     import asyncio
+    asyncio.create_task(load_models_background())
+
+async def load_models_background():
+    """Load all AI models in background after server starts"""
+    global models, model_loading_status
+    
+    model_loading_status["loading"] = True
+    logger.info("🔄 Starting background model loading...")
     
     try:
         # Use asyncio.wait_for to add timeout
-        await asyncio.wait_for(_load_models_with_timeout(), timeout=60.0)
+        await asyncio.wait_for(_load_models_with_timeout(), timeout=120.0)
+        model_loading_status["completed"] = True
+        logger.info("✅ Background model loading completed")
     except asyncio.TimeoutError:
-        logger.error("❌ Model loading timed out after 60 seconds")
-        logger.info("🚀 Starting server without all models loaded")
+        logger.error("❌ Model loading timed out after 120 seconds")
+        model_loading_status["error"] = "Timeout after 120 seconds"
+        logger.info("🚀 Server running with basic functionality")
     except Exception as e:
         logger.error(f"❌ Critical error during model loading: {e}")
-        logger.info("🚀 Starting server with basic functionality")
+        model_loading_status["error"] = str(e)
+        logger.info("🚀 Server running with basic functionality")
+    finally:
+        model_loading_status["loading"] = False
 
 async def _load_models_with_timeout():
     """Internal model loading function with timeout"""
@@ -182,8 +200,10 @@ async def _load_models_with_timeout():
             import torch
             from bert_skills_extractor import BERTSkillsModel
             bert_model_paths = [
-                Path("../bert_skills_model.pth"),  # Root directory
+                Path("../bert_skills_model.pth"),  # Root directory (from backend/)
+                Path("../../bert_skills_model.pth"),  # Root directory (if deeper)
                 Path("bert_skills_model.pth"),     # Backend directory
+                Path("/opt/render/project/src/bert_skills_model.pth"),  # Render absolute path
                 Path("models") / "bert_skills_model.pth",  # Models directory
                 Path("../app/bert_skills_model.pth")  # App directory
             ]
@@ -278,8 +298,10 @@ async def _load_models_with_timeout():
                 raise Exception("LSTM import timed out after 30 seconds")
             
             lstm_model_paths = [
-                Path("../lstm_resume_matcher_best.h5"),  # Root directory
+                Path("../lstm_resume_matcher_best.h5"),  # Root directory (from backend/)
+                Path("../../lstm_resume_matcher_best.h5"),  # Root directory (if deeper)
                 Path("lstm_resume_matcher_best.h5"),     # Backend directory
+                Path("/opt/render/project/src/lstm_resume_matcher_best.h5"),  # Render absolute path
                 Path("models") / "lstm_resume_matcher_best.h5",  # Models directory
                 Path("../app/lstm_resume_matcher_best.h5")  # App directory
             ]
@@ -352,8 +374,10 @@ async def _load_models_with_timeout():
         try:
             from bert_summarizer import BERTSummarizerTrainer, TextPreprocessor
             summarizer_paths = [
-                Path("../bert_summarizer_model.pth"),  # Root directory
+                Path("../bert_summarizer_model.pth"),  # Root directory (from backend/)
+                Path("../../bert_summarizer_model.pth"),  # Root directory (if deeper)
                 Path("bert_summarizer_model.pth"),     # Backend directory
+                Path("/opt/render/project/src/bert_summarizer_model.pth"),  # Render absolute path
                 Path("models") / "bert_summarizer_model.pth",  # Models directory
                 Path("../app/bert_summarizer_model.pth")  # App directory
             ]
@@ -411,9 +435,21 @@ async def _load_models_with_timeout():
 
 @app.get("/", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint with model status"""
+    """Health check endpoint with model status - works immediately"""
+    global model_loading_status
+    
+    # Determine status based on model loading
+    if model_loading_status["loading"]:
+        status = "loading_models"
+    elif model_loading_status["error"]:
+        status = "models_failed"
+    elif model_loading_status["completed"]:
+        status = "ready"
+    else:
+        status = "starting"
+    
     return HealthResponse(
-        status="healthy",
+        status=status,
         timestamp=datetime.now().isoformat(),
         models_loaded={
             "skills_extractor": models["skills_extractor"] is not None,
@@ -425,6 +461,23 @@ async def health_check():
         version="2.0.0"
     )
 
+@app.get("/api/models/status")
+async def get_model_status():
+    """Get current model loading status"""
+    global model_loading_status
+    return {
+        "loading": model_loading_status["loading"],
+        "completed": model_loading_status["completed"],
+        "error": model_loading_status["error"],
+        "models_available": {
+            "skills_extractor": models["skills_extractor"] is not None,
+            "bert_skills_model": models["bert_skills_model"] is not None,
+            "lstm_matcher": models["lstm_matcher"] is not None,
+            "bert_summarizer": models["bert_summarizer"] is not None,
+            "feature_extractor": models["feature_extractor"] is not None
+        }
+    }
+
 @app.post("/api/extract-skills", response_model=SkillsExtractionResponse)
 async def extract_skills(request: SkillsExtractionRequest):
     """Extract skills from job description or resume text"""
@@ -432,10 +485,16 @@ async def extract_skills(request: SkillsExtractionRequest):
     
     try:
         if not models.get("skills_extractor"):
-            raise HTTPException(
-                status_code=503, 
-                detail="Skills extractor not available. Please install ML dependencies: pip install torch tensorflow"
-            )
+            if model_loading_status["loading"]:
+                raise HTTPException(
+                    status_code=503, 
+                    detail="Models are still loading. Please wait a moment and try again."
+                )
+            else:
+                raise HTTPException(
+                    status_code=503, 
+                    detail="Skills extractor not available. Please check model loading status."
+                )
         
         # Use BERT model if available and requested
         if request.use_ai_model and models["bert_skills_model"]:
